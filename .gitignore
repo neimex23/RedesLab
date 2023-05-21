@@ -1,5 +1,7 @@
-# Visual Studio 2015/2017 cache/options directory
+# Visual Studio cache/options directory
 .vs/
+.vscode/
+
 
 # Files built by Visual Studio
 *_i.c
