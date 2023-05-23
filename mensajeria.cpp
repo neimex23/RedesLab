@@ -143,9 +143,20 @@ string encryptMD5 (string pass) {
 
 	//se obtiene desde la posicion 3 ya que al leer agrega md5 al inicio y se utilizan los 32 caracteres del hash"
 
-	return md5Pass.substr(3, md5Pass.length()-7);  //Preguntar porque no acepta tomar solo 32 bit "substr(3, 32)"
+	return md5Pass.substr(0, 32);  //Preguntar porque no acepta tomar solo 32 bit "substr(3, 32)"
 }
 
+void recivir(int fd1, char *buffer)
+{
+	
+	int numbytes = recv(fd1, buffer, MAX_LARGO_MENSAJE, 0);
+	cout << "buffer: ";
+	cout<< buffer << endl;
+	if (numbytes == -1){  
+		cout << "\33[46m\33[31m[ERROR]:" << "Al Recibir Mensaje.\33[00m\n";
+		exit(-1);
+	}
+}	
 
 int main(int argc, char * argv[]){
 // En argc viene la cantidad de argumentos que se pasan,
@@ -188,11 +199,12 @@ int main(int argc, char * argv[]){
 	cout << "Ingrese Usuario: ";
 	cin >> user;
 	cout << "Ingrese Contraseña: ";
-	cin >> password;	
+	cin >> password;
+	cout << password <<endl;	
 	auth = encryptMD5(password);
 
 
-	cout << auth << endl;
+	cout << "salida md5 " + auth << endl;
 
 	struct sockaddr_in server; 	 /* para la información de la dirección del servidor */
 
@@ -227,24 +239,27 @@ int main(int argc, char * argv[]){
 		exit(-1);
 	}
 	
-	//Preparacion y envio de buffer 
+	//Recepcion de respuesta
+	
+	recivir(fd1,buff);		
+	
+	//Preparacion y envio de buffer
+	memset (buff,0,sizeof(buff)) ;
+	cout<<auth<<endl;
 	strcat(buff,user.c_str());
 	strcat(buff,"-");
 	strcat(buff,auth.c_str());
 	strcat(buff,"\r\n");
-	send(fd1, buff , auth.length(), 0); 
-	
-	//Recepcion de respuesta
-	int numbytes = recv(fd1, buff, MAX_LARGO_MENSAJE, 0);
-	if (numbytes == -1){  
-		cout << "\33[46m\33[31m[ERROR]:" << "Al Recibir Mensaje.\33[00m\n";
+	send(fd1, buff , auth.length()+user.length()+3, 0); 
+	cout << "buffer2: ";
+	cout<< buff<< endl;
+	memset (buff,0,sizeof(buff));
+	recivir(fd1,buff);
+	if ((buff[0] == 'N') && (buff[1] == 'O')) {
+		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario no valido.\33[00m\n";
 		exit(-1);
-	}else { 
-		if (strcmp (buff,"NO") == 0) {
-			cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario no valido.\33[00m\n";
-			exit(-1);
-		}
-	}
+	}	
+	
 	close(fd1);
 	
 
