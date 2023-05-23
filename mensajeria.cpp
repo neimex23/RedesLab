@@ -119,10 +119,10 @@ char * getTiempo(){
 	return s;
 }
 
+//Codifica la contrase;a en MD5
 string encryptMD5 (string pass) {
-	//Generamos un archivo txt con el hash md5 pasado a consola
-	string echo = "echo -n '" + pass + "' | md5sum > md5.txt" ;
-	const char *c = echo.c_str();
+	string echo = "echo -n '" + pass + "' | md5sum > md5.txt" ; 	//Generamos un archivo txt con el hash md5 pasado a consola
+	const char *c = echo.c_str(); //La consola solo acepta arreglos de caracteres
 	system(c);
 
 	//Leemos el md5.txt para obtener la contraseña
@@ -141,17 +141,12 @@ string encryptMD5 (string pass) {
 		exit(-1);
     }
 
-	//se obtiene desde la posicion 3 ya que al leer agrega md5 al inicio y se utilizan los 32 caracteres del hash"
-
-	return md5Pass.substr(0, 32);  //Preguntar porque no acepta tomar solo 32 bit "substr(3, 32)"
+	return md5Pass.substr(0, 32);  //Extrae solo los 32 caracteres del hash
 }
 
-void recivir(int fd1, char *buffer)
-{
-	
-	int numbytes = recv(fd1, buffer, MAX_LARGO_MENSAJE, 0);
-	cout << "buffer: ";
-	cout<< buffer << endl;
+//Funcion para recibir mensajes de paquetes y ponerlos en el buffer
+void recibirMensaje(int fd, char *buffer) {	
+	int numbytes = recv(fd, buffer, MAX_LARGO_MENSAJE, 0);
 	if (numbytes == -1){  
 		cout << "\33[46m\33[31m[ERROR]:" << "Al Recibir Mensaje.\33[00m\n";
 		exit(-1);
@@ -192,6 +187,16 @@ int main(int argc, char * argv[]){
 	
 	// Antes de iniciar el programa de mensajeria debe autenticarse
 	// como especifica la letra
+	
+	//Definicion Estructuras de paquetes
+	
+	struct sockaddr_in server; 	 /* para la información de la dirección del servidor */
+	//struct sockaddr_in client;       /* para la información de la dirección del cliente */	
+	struct hostent *he;    /* estructura que recibirá información sobre el nodo remoto */
+	int fd1;
+	char buff[MAX_LARGO_MENSAJE];
+	
+	//Variables para Autentificacion
 	string user;
 	string password;
 	string auth;
@@ -203,20 +208,7 @@ int main(int argc, char * argv[]){
 	cout << password <<endl;	
 	auth = encryptMD5(password);
 
-
-	cout << "salida md5 " + auth << endl;
-
-	struct sockaddr_in server; 	 /* para la información de la dirección del servidor */
-
-	//struct sockaddr_in client;       /* para la información de la dirección del cliente */
 	
-	struct hostent *he;         
-	/* estructura que recibirá información sobre el nodo remoto */
-
-	int fd1;
-
-	char buff[MAX_LARGO_MENSAJE];
-
 	/* A continuación la llamada a socket() */
 	fd1 = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd1 == -1){  
@@ -240,21 +232,19 @@ int main(int argc, char * argv[]){
 	}
 	
 	//Recepcion de respuesta
-	
-	recivir(fd1,buff);		
+	recibirMensaje(fd1,buff);		
 	
 	//Preparacion y envio de buffer
-	memset (buff,0,sizeof(buff)) ;
-	cout<<auth<<endl;
+	memset (buff,0,sizeof(buff)); // Se borra el contenido de buffer
 	strcat(buff,user.c_str());
 	strcat(buff,"-");
 	strcat(buff,auth.c_str());
 	strcat(buff,"\r\n");
-	send(fd1, buff , auth.length()+user.length()+3, 0); 
-	cout << "buffer2: ";
-	cout<< buff<< endl;
+	send(fd1, buff , auth.length() + user.length() + 3, 0); 
+
+
 	memset (buff,0,sizeof(buff));
-	recivir(fd1,buff);
+	recibirMensaje(fd1,buff);
 	if ((buff[0] == 'N') && (buff[1] == 'O')) {
 		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario no valido.\33[00m\n";
 		exit(-1);

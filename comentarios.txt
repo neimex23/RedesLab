@@ -9,6 +9,5 @@ Comentarios:
 	Aqui deben figurar comentarios sobre la implementacion, errores que surjan,
 	lo que sea que consideren relevante sobre la solucion entregada. 
 
-- Utilizando la funcion substr(3, 32) en md5pass este elimina "md5" pero no toma solo 32 caracteres"
-- Envia el paquete con la informacion de autentificacion pero al recibirla no lo procesa bien ya que hay basura en el buffer
+- Envia el paquete con la informacion de autentificacion pero al recibirla no lo procesa bien ya que hay basura en el buffer  // Se soluciono borrando el buffer con memset
 - El servidor ti.esi.edu.uy:33 no funciona
