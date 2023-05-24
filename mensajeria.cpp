@@ -119,6 +119,10 @@ char * getTiempo(){
 	return s;
 }
 
+	int fd1;
+	char buff[MAX_LARGO_MENSAJE];
+
+
 //Codifica la contrase;a en MD5
 string encryptMD5 (string pass) {
 	string echo = "echo -n '" + pass + "' | md5sum > md5.txt" ; 	//Generamos un archivo txt con el hash md5 pasado a consola
@@ -145,13 +149,18 @@ string encryptMD5 (string pass) {
 }
 
 //Funcion para recibir mensajes de paquetes y ponerlos en el buffer
-void recibirMensaje(int fd, char *buffer) {	
-	int numbytes = recv(fd, buffer, MAX_LARGO_MENSAJE, 0);
+void recibirMensaje() {	
+	strcpy(buff,"");
+	int numbytes = recv(fd1, buff, MAX_LARGO_MENSAJE, 0);
 	if (numbytes == -1){  
 		cout << "\33[46m\33[31m[ERROR]:" << "Al Recibir Mensaje.\33[00m\n";
 		exit(-1);
+	}else {
+		buff[numbytes-2] = '\0';
 	}
 }	
+
+
 
 int main(int argc, char * argv[]){
 // En argc viene la cantidad de argumentos que se pasan,
@@ -193,8 +202,7 @@ int main(int argc, char * argv[]){
 	struct sockaddr_in server; 	 /* para la información de la dirección del servidor */
 	//struct sockaddr_in client;       /* para la información de la dirección del cliente */	
 	struct hostent *he;    /* estructura que recibirá información sobre el nodo remoto */
-	int fd1;
-	char buff[MAX_LARGO_MENSAJE];
+
 	
 	//Variables para Autentificacion
 	string user;
@@ -217,6 +225,10 @@ int main(int argc, char * argv[]){
 	
 	//Seteo de estructura Server.
 	he = gethostbyname(argv[2]);
+	if (he == NULL){
+		cout << "\33[46m\33[31m[ERROR]: " << "Al Resolver el DNS\33[00m\n";
+		exit(-1);
+	}
 	server.sin_family = AF_INET;
 	server.sin_port = htons(atoi(argv[3])); 
 	server.sin_addr.s_addr = INADDR_ANY; 
@@ -231,7 +243,14 @@ int main(int argc, char * argv[]){
 	}
 	
 	//Recepcion de respuesta
-	recibirMensaje(fd1,buff);		
+	recibirMensaje();	
+
+
+	//Chequeo del Saludo
+	/*if (strcmp(buff,"Redes 2023 - Laboratorio - Autenticacion de Usuarios") != 0){
+		cout << "\33[46m\33[31m[ERROR]: " << "Protocolo Incorrecto\33[00m\n" << endl;
+		exit(-1);
+	}*/
 	
 	//Preparacion y envio de buffer
 	strcpy(buff,"");
@@ -241,14 +260,19 @@ int main(int argc, char * argv[]){
 	strcat(buff,"\r\n");
 	send(fd1, buff , auth.length() + user.length() + 3, 0); 
 
-
-	strcpy(buff,"");
-	recibirMensaje(fd1,buff);
-	if ((buff[0] == 'N') && (buff[1] == 'O')) {
-		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario no valido.\33[00m\n";
+	recibirMensaje();
+	if(strcasecmp(buff,"NO")==0){
+		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario o contraseña Incorrecto.\33[00m\n";
 		exit(-1);
-	}	
+	}else if (strcasecmp(buff,"SI") !=0){
+		cout << "\33[46m\33[31m[ERROR]: Error Protocolo de autentificacion.\33[00m\n";
+		exit(-1);
+	}
 	
+	recibirMensaje();
+
+	cout << "Bienvenid@ " <<buff <<endl;
+
 	close(fd1);
 	
 
