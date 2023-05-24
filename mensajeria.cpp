@@ -205,7 +205,6 @@ int main(int argc, char * argv[]){
 	cin >> user;
 	cout << "Ingrese Contraseña: ";
 	cin >> password;
-	cout << password <<endl;	
 	auth = encryptMD5(password);
 
 	
@@ -235,7 +234,7 @@ int main(int argc, char * argv[]){
 	recibirMensaje(fd1,buff);		
 	
 	//Preparacion y envio de buffer
-	memset (buff,0,sizeof(buff)); // Se borra el contenido de buffer
+	strcpy(buff,"");
 	strcat(buff,user.c_str());
 	strcat(buff,"-");
 	strcat(buff,auth.c_str());
@@ -243,7 +242,7 @@ int main(int argc, char * argv[]){
 	send(fd1, buff , auth.length() + user.length() + 3, 0); 
 
 
-	memset (buff,0,sizeof(buff));
+	strcpy(buff,"");
 	recibirMensaje(fd1,buff);
 	if ((buff[0] == 'N') && (buff[1] == 'O')) {
 		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario no valido.\33[00m\n";
