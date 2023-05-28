@@ -395,7 +395,6 @@ int main(int argc, char * argv[]){
 		cout << "\33[46m\33[31m[ERROR]: Error Protocolo de autentificacion.\33[00m\n";
 		exit(-1);
 	}
-
 	recibirMensaje();
 
 	cout << "Bienvenid@ " <<buff <<endl;
