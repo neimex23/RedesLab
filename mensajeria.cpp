@@ -119,6 +119,10 @@ char * getTiempo(){
 	return s;
 }
 
+	int fd1;
+	char buff[MAX_LARGO_MENSAJE];
+
+
 //Codifica la contrase;a en MD5
 string encryptMD5 (string pass) {
 	string echo = "echo -n '" + pass + "' | md5sum > md5.txt" ; 	//Generamos un archivo txt con el hash md5 pasado a consola
@@ -145,13 +149,144 @@ string encryptMD5 (string pass) {
 }
 
 //Funcion para recibir mensajes de paquetes y ponerlos en el buffer
-void recibirMensaje(int fd, char *buffer) {	
-	int numbytes = recv(fd, buffer, MAX_LARGO_MENSAJE, 0);
+void recibirMensaje() {	
+	strcpy(buff,"");
+	int numbytes = recv(fd1, buff, MAX_LARGO_MENSAJE, 0);
 	if (numbytes == -1){  
 		cout << "\33[46m\33[31m[ERROR]:" << "Al Recibir Mensaje.\33[00m\n";
 		exit(-1);
+	}else {
+		buff[numbytes-2] = '\0';
 	}
 }	
+
+
+void leer_mensaje_escrito (char mensaje[]) {
+
+	int posicion = 0;
+	char letra;
+
+	letra = getchar();
+	while (letra !='\n' and posicion < MAX_LARGO_MENSAJE - 2) {
+
+		mensaje[posicion] = letra;
+		posicion++;
+		letra = getchar();
+	}
+
+	mensaje[posicion] = '\0';
+}
+
+void escucha (int puerto) {
+
+	int fd;
+	int numbytes;
+
+	char buffer[MAX_LARGO_MENSAJE];
+
+	struct sockaddr_in server;
+	struct sockaddr_in client;
+
+	if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1 ) {
+
+		cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible crear socket udp.\33[00m\n";
+		exit(1);
+	}
+
+	server.sin_family = AF_INET;
+	server.sin_port = htons(puerto);
+	server.sin_addr.s_addr = INADDR_ANY;
+	bzero(&(server.sin_zero),8);
+
+	if (bind(fd,(struct sockaddr*)&server,sizeof(struct sockaddr)) == -1) {
+
+		cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible hacer bind() para recepcion.\33[00m\n";
+		exit(1);
+	}
+
+	unsigned int sin_size = sizeof(struct sockaddr_in);
+
+		while (true) {
+
+		if ((numbytes = recvfrom(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr *)&client, &sin_size)) == -1) {
+
+			cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible hacer recvfrom() para recepcion.\33[00m\n";
+			exit(1);
+		}
+
+		buffer[numbytes -2] = '\0';
+
+		printf("%s %s %s\n", getTiempo(), inet_ntoa(client.sin_addr), buffer);
+
+
+		/*if (verificarArchivo(buffer)){
+			printf("%s %s %s\n", getTiempo(), inet_ntoa(client.sin_addr), buffer);
+			recibirArchivo(fd, client, buffer);
+		}else{
+			;
+		}*/
+		}
+
+	close(fd);
+
+}
+
+void envioMensajeria (int puerto, string usuario) {
+
+	int fd;
+	int broadcast;
+
+	char mensaje[MAX_LARGO_MENSAJE];
+	char buffer[MAX_LARGO_MENSAJE];
+	char pathArchivo[MAX_LARGO_MENSAJE];
+	string strPathArchivo;
+	FILE * redes_file;
+
+	struct hostent *he;
+
+	struct sockaddr_in server, client;
+
+	while (true) {
+
+		if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1 ) { //socket UDP
+			cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible abrir socket udp para envio.\33[00m\n";
+			exit(1);
+			}
+
+		unsigned int sin_size = sizeof(struct sockaddr_in);
+
+		char ip[25];
+		cout << "Ingrese IP y mensaje: " << endl;
+		cin >> ip;
+
+
+	if ((he = gethostbyname(ip)) == NULL) {
+		cout << "\33[46m\33[31m[ERROR]:" << " gethostbyname()\33[00m\n";
+		exit(-1);
+	}
+	server.sin_family = AF_INET;
+	server.sin_port = htons(puerto);
+	server.sin_addr = *((struct in_addr *)he->h_addr);
+	bzero(&(server.sin_zero),8);
+
+	leer_mensaje_escrito(mensaje);
+	
+	buffer[0] = '\0';
+	strcpy(buffer,usuario.c_str());
+	strcat(buffer," Dice: ");
+	strcat(buffer,mensaje);
+	strcat(buffer,"\0");
+
+	if (sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size) == -1) {
+
+		cout << "\33[46m\33[31m[ERROR]:" << " ERROR: sendto().\33[00m\n";
+		exit(1);
+	}
+
+	
+	}
+
+}
 
 int main(int argc, char * argv[]){
 // En argc viene la cantidad de argumentos que se pasan,
@@ -193,19 +328,18 @@ int main(int argc, char * argv[]){
 	struct sockaddr_in server; 	 /* para la información de la dirección del servidor */
 	//struct sockaddr_in client;       /* para la información de la dirección del cliente */	
 	struct hostent *he;    /* estructura que recibirá información sobre el nodo remoto */
-	int fd1;
-	char buff[MAX_LARGO_MENSAJE];
+
 	
 	//Variables para Autentificacion
 	string user;
 	string password;
 	string auth;
+	int puerto = atoi(argv[1]);
 
 	cout << "Ingrese Usuario: ";
 	cin >> user;
 	cout << "Ingrese Contraseña: ";
 	cin >> password;
-	cout << password <<endl;	
 	auth = encryptMD5(password);
 
 	
@@ -218,6 +352,10 @@ int main(int argc, char * argv[]){
 	
 	//Seteo de estructura Server.
 	he = gethostbyname(argv[2]);
+	if (he == NULL){
+		cout << "\33[46m\33[31m[ERROR]: " << "Al Resolver el DNS\33[00m\n";
+		exit(-1);
+	}
 	server.sin_family = AF_INET;
 	server.sin_port = htons(atoi(argv[3])); 
 	server.sin_addr.s_addr = INADDR_ANY; 
@@ -232,24 +370,36 @@ int main(int argc, char * argv[]){
 	}
 	
 	//Recepcion de respuesta
-	recibirMensaje(fd1,buff);		
+	recibirMensaje();	
+
+
+	//Chequeo del Saludo
+	/*if (strcmp(buff,"Redes 2023 - Laboratorio - Autenticacion de Usuarios") != 0){
+		cout << "\33[46m\33[31m[ERROR]: " << "Protocolo Incorrecto\33[00m\n" << endl;
+		exit(-1);
+	}*/
 	
 	//Preparacion y envio de buffer
-	memset (buff,0,sizeof(buff)); // Se borra el contenido de buffer
+	strcpy(buff,"");
 	strcat(buff,user.c_str());
 	strcat(buff,"-");
 	strcat(buff,auth.c_str());
 	strcat(buff,"\r\n");
 	send(fd1, buff , auth.length() + user.length() + 3, 0); 
 
-
-	memset (buff,0,sizeof(buff));
-	recibirMensaje(fd1,buff);
-	if ((buff[0] == 'N') && (buff[1] == 'O')) {
-		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario no valido.\33[00m\n";
+	recibirMensaje();
+	if(strcasecmp(buff,"NO")==0){
+		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario o contraseña Incorrecto.\33[00m\n";
 		exit(-1);
-	}	
-	
+	}else if (strcasecmp(buff,"SI") !=0){
+		cout << "\33[46m\33[31m[ERROR]: Error Protocolo de autentificacion.\33[00m\n";
+		exit(-1);
+	}
+
+	recibirMensaje();
+
+	cout << "Bienvenid@ " <<buff <<endl;
+
 	close(fd1);
 	
 
@@ -268,19 +418,14 @@ int main(int argc, char * argv[]){
 	
 	if (pid == 0){
 		printf("\33[34mRx\33[39m: Iniciada parte que recepciona mensajes. Pid %d\n", getpid());
-		while (true){
-			sleep(1);
-			// Incluir el codigo de la recepcion de mensajeria y archivos.
-		}
+		
+		escucha(atoi(argv[1]));		
 	}
 	
 	
 	if (pid > 0){
 		printf("\33[34mTx\33[39m: Iniciada parte que transmite mensajes. Pid %d\n", getpid());
-		while (true){
-			sleep(1);
-			// Leer de la entrada estandar e incluir
-			// el codigo de la emision de mensajeria y archivos.
-		}
+		
+		envioMensajeria(puerto, user);
 	}
 }
