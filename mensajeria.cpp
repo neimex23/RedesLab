@@ -216,7 +216,7 @@ void escucha (int puerto) {
 
 		buffer[numbytes -2] = '\0';
 
-		printf("%s %s %s\n", getTiempo(), inet_ntoa(client.sin_addr), buffer);
+		cout << getTiempo() << " " << inet_ntoa(client.sin_addr) << " " << buffer << endl;
 
 
 		/*if (verificarArchivo(buffer)){
@@ -256,7 +256,6 @@ void envioMensajeria (int puerto, string usuario) {
 		unsigned int sin_size = sizeof(struct sockaddr_in);
 
 		char ip[25];
-		cout << "Ingrese IP y mensaje: " << endl;
 		cin >> ip;
 
 
