@@ -185,7 +185,6 @@ void recepcionMensajeria (int puerto) {
 	struct sockaddr_in client;
 
 	FILE * redes_file;
-	string archivo;
 
 
 	if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1 ) {
@@ -220,15 +219,15 @@ void recepcionMensajeria (int puerto) {
 
 		if (strcasecmp(buffer,"inicioArchivo")==0){ //Si es un archivo
 			strcpy(buffer, "\0");
-			while (strcasecmp(buffer,"finArchivo")==0){
+			redes_file = fopen("./descargado.png", "w");
+			while (strcasecmp(buffer,"finArchivo")!=0){
 				if ((numbytes = recvfrom(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr *)&client, &sin_size)) == -1) {
 					cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible hacer recvfrom() para recepcion.\33[00m\n";
 					exit(1);	
 				}
-				//archivo += buffer;
-			}
-			//redes_file = fopen(archivo.c_str(), "w");
-			//fclose(redes_file);
+				fprintf(redes_file, "%s", buffer);
+			}						
+			fclose(redes_file);
 
 		}else {
 			cout << getTiempo() << " " << inet_ntoa(client.sin_addr) << " " << buffer << endl;
@@ -250,15 +249,13 @@ void recepcionMensajeria (int puerto) {
 
 }
 
-bool verificarArchivo(char buffer[],int & startposicion){
-	char iter;
-    int posicion =0;
+bool verificarArchivo(char buffer[]){
+	char iter = buffer[0];
 	bool retorno = false;
+	int posicion = 0;
 	while (iter != '\0' && !retorno && posicion <= MAX_LARGO_MENSAJE){
 		iter = buffer[posicion];
-		cout << "iter: " << iter << endl;
 		if (iter == '&') {
-			startposicion = posicion;
 			retorno = true;
 		}		
 		else 
@@ -308,29 +305,42 @@ void envioMensajeria (int puerto, string usuario) {
 
 	leer_mensaje_escrito(mensaje);
 
-
-	if (verificarArchivo(mensaje,posicion)){ //Si es un archivo
-		char iter;
-		posicion+=6; // &file + espacio
+	if (verificarArchivo(mensaje)){ //Si es un archivo
+		char iter = mensaje[0];
+		posicion=7; // espacio + &file + espacio
 		while (iter != '\0' && posicion <= MAX_LARGO_MENSAJE){
-			iter = buffer[posicion];
+			iter = mensaje[posicion];
 			strPathArchivo +=iter;
 			posicion++;
 		}
+
+
+		strcpy(buffer,usuario.c_str());
+		strcat(buffer," [Envio de archivo] ");
+		strcat(buffer,strPathArchivo.c_str());
+		strcat(buffer,"\0");
+
+		if (sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size) == -1) {
+
+			cout << "\33[46m\33[31m[ERROR]:" << " ERROR: sendto().\33[00m\n";
+			exit(1);
+		}
+		strcpy(buffer,"\0");
+
+
+
 		strcpy(buffer, "inicioArchivo");
 		sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size);
-		cout << "Linea 314: " << buffer << endl;
+		strcpy(buffer,"\0");
 
 		redes_file = fopen(strPathArchivo.c_str(),"rb");
-
-
 		while (fgets(buffer, MAX_LARGO_MENSAJE, redes_file) != NULL ){
-
+			
 			if (sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size) == -1){
 				cout << "\33[46m\33[31m[ERROR]:" << " ERROR: enviando archivo.\33[00m\n";
 				exit(1);
 			}
-
+			
 			bzero(buffer, MAX_LARGO_MENSAJE);
 		}
 
@@ -344,7 +354,7 @@ void envioMensajeria (int puerto, string usuario) {
 		strcpy(buffer,usuario.c_str());
 		strcat(buffer," Dice: ");
 		strcat(buffer,mensaje);
-		strcat(buffer,"\0");
+		strcat(buffer,"\0"); 
 	}
 	
 
