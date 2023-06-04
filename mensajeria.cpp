@@ -119,10 +119,6 @@ char * getTiempo(){
 	return s;
 }
 
-	int fd1;
-	char buff[MAX_LARGO_MENSAJE];
-
-
 //Codifica la contrase;a en MD5
 string encryptMD5 (string pass) {
 	string echo = "echo -n '" + pass + "' | md5sum > md5.txt" ; 	//Generamos un archivo txt con el hash md5 pasado a consola
@@ -149,7 +145,7 @@ string encryptMD5 (string pass) {
 }
 
 //Funcion para recibir mensajes de paquetes y ponerlos en el buffer
-void recibirMensaje() {	
+void recibirMensaje(int fd1,char buff[]) {	
 	strcpy(buff,"");
 	int numbytes = recv(fd1, buff, MAX_LARGO_MENSAJE, 0);
 	if (numbytes == -1){  
@@ -177,15 +173,20 @@ void leer_mensaje_escrito (char mensaje[]) {
 	mensaje[posicion] = '\0';
 }
 
-void escucha (int puerto) {
+void recepcionMensajeria (int puerto) {
 
 	int fd;
 	int numbytes;
 
 	char buffer[MAX_LARGO_MENSAJE];
+	string pathFile;
 
 	struct sockaddr_in server;
 	struct sockaddr_in client;
+
+	FILE * redes_file;
+	string archivo;
+
 
 	if ((fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1 ) {
 
@@ -216,7 +217,25 @@ void escucha (int puerto) {
 
 		buffer[numbytes -2] = '\0';
 
-		cout << getTiempo() << " " << inet_ntoa(client.sin_addr) << " " << buffer << endl;
+
+		if (strcasecmp(buffer,"inicioArchivo")==0){ //Si es un archivo
+			strcpy(buffer, "\0");
+			while (strcasecmp(buffer,"finArchivo")==0){
+				if ((numbytes = recvfrom(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr *)&client, &sin_size)) == -1) {
+					cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible hacer recvfrom() para recepcion.\33[00m\n";
+					exit(1);	
+				}
+				//archivo += buffer;
+			}
+			//redes_file = fopen(archivo.c_str(), "w");
+			//fclose(redes_file);
+
+		}else {
+			cout << getTiempo() << " " << inet_ntoa(client.sin_addr) << " " << buffer << endl;
+		}
+
+
+		
 
 
 		/*if (verificarArchivo(buffer)){
@@ -231,6 +250,24 @@ void escucha (int puerto) {
 
 }
 
+bool verificarArchivo(char buffer[],int & startposicion){
+	char iter;
+    int posicion =0;
+	bool retorno = false;
+	while (iter != '\0' && !retorno && posicion <= MAX_LARGO_MENSAJE){
+		iter = buffer[posicion];
+		cout << "iter: " << iter << endl;
+		if (iter == '&') {
+			startposicion = posicion;
+			retorno = true;
+		}		
+		else 
+			posicion ++;
+	}
+	return retorno;
+}
+
+
 void envioMensajeria (int puerto, string usuario) {
 
 	int fd;
@@ -241,6 +278,7 @@ void envioMensajeria (int puerto, string usuario) {
 	char pathArchivo[MAX_LARGO_MENSAJE];
 	string strPathArchivo;
 	FILE * redes_file;
+	int posicion = 0;
 
 	struct hostent *he;
 
@@ -269,12 +307,46 @@ void envioMensajeria (int puerto, string usuario) {
 	bzero(&(server.sin_zero),8);
 
 	leer_mensaje_escrito(mensaje);
+
+
+	if (verificarArchivo(mensaje,posicion)){ //Si es un archivo
+		char iter;
+		posicion+=6; // &file + espacio
+		while (iter != '\0' && posicion <= MAX_LARGO_MENSAJE){
+			iter = buffer[posicion];
+			strPathArchivo +=iter;
+			posicion++;
+		}
+		strcpy(buffer, "inicioArchivo");
+		sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size);
+		cout << "Linea 314: " << buffer << endl;
+
+		redes_file = fopen(strPathArchivo.c_str(),"rb");
+
+
+		while (fgets(buffer, MAX_LARGO_MENSAJE, redes_file) != NULL ){
+
+			if (sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size) == -1){
+				cout << "\33[46m\33[31m[ERROR]:" << " ERROR: enviando archivo.\33[00m\n";
+				exit(1);
+			}
+
+			bzero(buffer, MAX_LARGO_MENSAJE);
+		}
+
+
+		fclose(redes_file);
+		strcpy(buffer, "finArchivo");
+  		sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size);
+  		bzero(buffer, MAX_LARGO_MENSAJE);
+
+	}else {
+		strcpy(buffer,usuario.c_str());
+		strcat(buffer," Dice: ");
+		strcat(buffer,mensaje);
+		strcat(buffer,"\0");
+	}
 	
-	buffer[0] = '\0';
-	strcpy(buffer,usuario.c_str());
-	strcat(buffer," Dice: ");
-	strcat(buffer,mensaje);
-	strcat(buffer,"\0");
 
 	if (sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size) == -1) {
 
@@ -330,6 +402,8 @@ int main(int argc, char * argv[]){
 
 	
 	//Variables para Autentificacion
+	int fd1;
+	char buff[MAX_LARGO_MENSAJE];
 	string user;
 	string password;
 	string auth;
@@ -369,7 +443,7 @@ int main(int argc, char * argv[]){
 	}
 	
 	//Recepcion de respuesta
-	recibirMensaje();	
+	recibirMensaje(fd1,buff);	
 
 
 	//Chequeo del Saludo
@@ -386,7 +460,7 @@ int main(int argc, char * argv[]){
 	strcat(buff,"\r\n");
 	send(fd1, buff , auth.length() + user.length() + 3, 0); 
 
-	recibirMensaje();
+	recibirMensaje(fd1,buff);
 	if(strcasecmp(buff,"NO")==0){
 		cout << "\33[46m\33[31m[ERROR]: Imposible autenticar, usuario o contraseña Incorrecto.\33[00m\n";
 		exit(-1);
@@ -394,7 +468,7 @@ int main(int argc, char * argv[]){
 		cout << "\33[46m\33[31m[ERROR]: Error Protocolo de autentificacion.\33[00m\n";
 		exit(-1);
 	}
-	recibirMensaje();
+	recibirMensaje(fd1,buff);
 
 	cout << "Bienvenid@ " <<buff <<endl;
 
@@ -417,7 +491,7 @@ int main(int argc, char * argv[]){
 	if (pid == 0){
 		printf("\33[34mRx\33[39m: Iniciada parte que recepciona mensajes. Pid %d\n", getpid());
 		
-		escucha(atoi(argv[1]));		
+		recepcionMensajeria(atoi(argv[1]));		
 	}
 	
 	
