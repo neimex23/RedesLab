@@ -261,7 +261,7 @@ void recepcionMensajeria (int puerto) {
 
 		
 		if (getPathArchivoRecibido(buffer) != ""){
-			pathFile = "./descargado.png"; //pathFile = getPathArchivoRecibido(buffer);
+			pathFile = getPathArchivoRecibido(buffer); //pathFile = "./descargado.png"; 
 		}
 		
 
@@ -273,7 +273,7 @@ void recepcionMensajeria (int puerto) {
 					cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible hacer recvfrom() para recepcion.\33[00m\n";
 					exit(1);	
 				}
-				fprintf(redes_file, "%s", buffer);
+				fwrite(buffer,sizeof(byte),sizeof(buffer) ,redes_file);
 				//memset(buffer, '\0', sizeof(buffer));
 			}	
 			fclose(redes_file);
@@ -297,7 +297,6 @@ void envioMensajeria (int puerto, string usuario) {
 
 	char mensaje[MAX_LARGO_MENSAJE];
 	char buffer[MAX_LARGO_MENSAJE];
-	char pathArchivo[MAX_LARGO_MENSAJE];
 	string strPathArchivo;
 	FILE * redes_file;
 	int posicion = 0;
@@ -359,7 +358,7 @@ void envioMensajeria (int puerto, string usuario) {
 		strcpy(buffer,"\0");
 
 		redes_file = fopen(strPathArchivo.c_str(),"rb");
-		while (fgets(buffer, MAX_LARGO_MENSAJE, redes_file) != NULL ){
+		while (fread(buffer,sizeof(byte),sizeof(buffer),redes_file)){//(fgets(buffer, MAX_LARGO_MENSAJE, redes_file) != NULL ){
 			//sleep(1);
 			if (sendto(fd, buffer, MAX_LARGO_MENSAJE, 0, (struct sockaddr*)&server, sin_size) == -1){
 				cout << "\33[46m\33[31m[ERROR]:" << " ERROR: enviando archivo.\33[00m\n";
