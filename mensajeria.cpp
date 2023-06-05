@@ -303,7 +303,7 @@ void envioMensajeria (int puerto, string usuario) {
 
 	struct hostent *he;
 
-	struct sockaddr_in server, client;
+	struct sockaddr_in server;
 
 	while (true) {
 
@@ -317,15 +317,34 @@ void envioMensajeria (int puerto, string usuario) {
 		char ip[25];
 		cin >> ip;
 
+	if (strcmp(ip, "*") == 0){  // broadcast
 
-	if ((he = gethostbyname(ip)) == NULL) {
-		cout << "\33[46m\33[31m[ERROR]:" << " gethostbyname()\33[00m\n";
-		exit(-1);
+			broadcast = 1;
+
+			server.sin_family = AF_INET;
+			server.sin_port = htons(puerto);
+			server.sin_addr.s_addr = INADDR_BROADCAST;
+			bzero(&(server.sin_zero),8);
+
+			if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == -1) {
+
+				cout << "\33[46m\33[31m[ERROR]:" << " ERROR: Imposible hacer setsockopt() para envi   o.\33[00m\n";
+				exit(1);
+			}	
 	}
-	server.sin_family = AF_INET;
-	server.sin_port = htons(puerto);
-	server.sin_addr = *((struct in_addr *)he->h_addr);
-	bzero(&(server.sin_zero),8);
+	else { //No broadcast
+		if ((he = gethostbyname(ip)) == NULL) {
+				cout << "\33[46m\33[31m[ERROR]:" << " gethostbyname()\33[00m\n";
+				exit(-1);
+		}
+		server.sin_family = AF_INET;
+		server.sin_port = htons(puerto);
+		server.sin_addr = *((struct in_addr *)he->h_addr);
+		bzero(&(server.sin_zero),8);
+	}
+
+
+	
 
 	leer_mensaje_escrito(mensaje);
 
